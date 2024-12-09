@@ -34,6 +34,20 @@ The columns `EIN` and `NAME` were removed from the dataset as they are unique id
 - **Accuracy**: After training the model, the accuracy achieved on the test set was approximately **72.96%**.
 - **Loss**: The model’s loss was **0.55** on the test set.
 
+The following two plots show the **Training vs Validation Loss** (left) and **Training vs Validation Accuracy** (right) for the deep learning model across epochs.
+
+![Training vs Validation Loss and Accuracy](Images/accuracy_plot.png)
+
+- **Training vs Validation Loss**:
+  - The training loss steadily decreases, indicating that the model is learning and improving. 
+  - However, the validation loss does not decrease at the same rate and flattens out, suggesting that the model may not be generalizing well on unseen data.
+
+- **Training vs Validation Accuracy**:
+  - The training accuracy continues to increase, reflecting improved performance on the training dataset.
+  - The validation accuracy shows a similar upward trend but is lower than the training accuracy, which may indicate **overfitting**. This means the model performs well on the training data but struggles with new, unseen data.
+
+#### **Takeaway**:
+From these plots, it's evident that while the model performs well on the training data, there are signs of overfitting, as shown by the validation accuracy lagging behind the training accuracy. Techniques like early stopping, regularization, or using a different model could help reduce overfitting and improve generalization to unseen data.
 
 ### Attempts to Improve the Model
 To optimize the model further, I experimented with several changes:
