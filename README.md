@@ -1,73 +1,160 @@
-# Report on the Neural Network Model
-## Overview of the Analysis
+# Charity Success Classification with Neural Networks
 
-Neural networks are a type of machine learning model inspired by the human brain, designed to recognize patterns and make predictions. They consist of layers of interconnected nodes, or "neurons," where each neuron processes data and passes it to the next layer. The goal of this project was to use a neural network to predict whether a charity organization would be successful based on various features like their application type, classification, and financial information.
+## Overview
 
-In this project, we started with a simple neural network with two hidden layers, using **ReLU activation**. To improve the model, we added a third hidden layer, increased the number of neurons, and tested different **dropout rates** (0.2 and 0.4) to prevent overfitting. We also experimented with the **tanh activation function**, though it didn’t yield better results. We used **early stopping** to stop training early when the model’s performance stopped improving, and chose **Stochastic Gradient Descent (SGD)** as the optimizer.
+This project applies deep learning techniques to predict the success of charitable organizations in securing funding. A binary classification model was developed using **TensorFlow** and **Keras**, with the target variable `IS_SUCCESSFUL` indicating funding outcome (`1` = successful, `0` = not successful).
 
-Despite these optimizations, our model achieved an accuracy of **72.96%** and a loss of **0.55**, which was below the target accuracy. Through this process, we learned how tuning different aspects of the neural network, such as the number of layers, neurons, and training techniques, can impact the model’s performance.
+Despite iterative tuning—including dropout, early stopping, and optimizer changes—the model achieved a peak accuracy of **72.96%** and a loss of **0.55**, slightly below the target benchmark of 75%.
 
+---
 
-## Data Preprocessing
+## Dataset and Preprocessing
 
-### Target Variable(s)
-The target variable for the model is `IS_SUCCESSFUL`, which indicates whether the organization was successful in securing funding (1 for success, 0 for failure).
+The dataset `charity_data.csv` contains records of nonprofit organization applications, including financial and categorical metadata.
 
-### Feature Variables
-The features used to train the model include variables like `APPLICATION_TYPE`, `CLASSIFICATION`, `INCOME_AMT`, `ASK_AMT`, and others. These features were selected based on their relevance to the classification task.
+### Example Entry:
 
-### Variables Removed
-The columns `EIN` and `NAME` were removed from the dataset as they are unique identifiers and do not provide useful information for classification.
+| EIN       | NAME                          | APPLICATION_TYPE | AFFILIATION | CLASSIFICATION | USE_CASE    | ORGANIZATION | STATUS | INCOME_AMT | SPECIAL_CONSIDERATIONS | ASK_AMT | IS_SUCCESSFUL |
+|-----------|-------------------------------|------------------|-------------|----------------|-------------|--------------|--------|------------|------------------------|---------|----------------|
+| 10520599  | BLUE KNIGHTS MOTORCYCLE CLUB  | T10              | Independent | C1000          | ProductDev  | Association  | 1      | 0          | N                      | 5000    | 1              |
 
+### Preprocessing Steps:
+- Dropped non-informative ID columns: `EIN`, `NAME`
+    ```python
+    # Drop non-beneficial ID columns
+    application_df = application_df.drop(columns=["EIN", "NAME"])
+    ```
+- Consolidated rare categories in `APPLICATION_TYPE` and `CLASSIFICATION` into `"Other"`
+  ```python
+    # Group rare categories into "Other"
+    app_type_counts = application_df["APPLICATION_TYPE"].value_counts()
+    rare_apps = app_type_counts[app_type_counts < 500].index
+    application_df["APPLICATION_TYPE"] = application_df["APPLICATION_TYPE"].replace(rare_apps, "Other")
 
-## Compiling, Training, and Evaluating the Model
+    class_counts = application_df["CLASSIFICATION"].value_counts()
+    rare_classes = class_counts[class_counts < 100].index
+    application_df["CLASSIFICATION"] = application_df["CLASSIFICATION"].replace(rare_classes, "Other")
+    ```
+- Applied **one-hot encoding** to all categorical features
+    ```python
+    # One-hot encode categorical variables
+    application_df = pd.get_dummies(application_df)
+    ```
+- Scaled numeric features using `StandardScaler`
+    ```python
+    # Scale features
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    ```
+- Split data into **80% training** and **20% testing** sets using `train_test_split`
+    ```python
+    # Split data into features (X) and target (y)
+    X = application_df.drop("IS_SUCCESSFUL", axis=1)
+    y = application_df["IS_SUCCESSFUL"]
+    ```
 
-### Model Architecture
-- **Input Layer**: The input layer size is based on the number of features in the dataset (after preprocessing).
-- **Hidden Layers**:
-  - First hidden layer: 128 neurons with ReLU activation.
-  - Second hidden layer: 64 neurons with ReLU activation.
-  - Third hidden layer: 32 neurons with ReLU activation.
-- **Output Layer**: The output layer consists of 1 neuron with a sigmoid activation function for binary classification.
+  **Final feature count**: 43 columns after encoding and cleaning
 
-### Model Performance
-- **Loss**: The model’s loss was **0.55** on the test set.
-- **Accuracy**: After training the model, the accuracy achieved on the test set was approximately **72.96%**.
+---
 
-The following two plots show the **Training vs Validation Loss** (left) and **Training vs Validation Accuracy** (right) for the deep learning model across epochs.
+## Model Architecture
+
+| Layer           | Neurons | Activation | Dropout |
+|----------------|---------|------------|---------|
+| Input Layer     | 43      | —          | —       |
+| Hidden Layer 1  | 128     | ReLU       | 0.4     |
+| Hidden Layer 2  | 64      | ReLU       | 0.4     |
+| Hidden Layer 3  | 32      | ReLU       | 0.4     |
+| Output Layer    | 1       | Sigmoid    | —       |
+
+## Model Details
+
+- **Loss Function**: `binary_crossentropy`
+- **Optimizer**: Stochastic Gradient Descent (learning rate = 0.01, momentum = 0.9)
+- **Regularization**: Dropout layers applied after each hidden layer
+- **Early Stopping**: Enabled with `patience=10` to stop training if validation loss doesn’t improve
+
+```python
+import tensorflow as tf
+from tensorflow.keras.callbacks import EarlyStopping
+
+# Define the model
+nn = tf.keras.models.Sequential()
+nn.add(tf.keras.layers.Dense(units=128, activation='relu', input_dim=X_train_scaled.shape[1]))
+nn.add(tf.keras.layers.Dropout(0.4))
+nn.add(tf.keras.layers.Dense(units=64, activation='relu'))
+nn.add(tf.keras.layers.Dropout(0.4))
+nn.add(tf.keras.layers.Dense(units=32, activation='relu'))
+nn.add(tf.keras.layers.Dropout(0.4))
+nn.add(tf.keras.layers.Dense(units=1, activation='sigmoid'))
+
+# Compile the model
+optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.9)
+nn.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+
+# Early stopping callback
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+```
+---
+
+## Training & Evaluation
+
+- **Training Epochs**: Max 100 (early stopping often activated earlier)
+- **Accuracy (Test Set)**: **72.96%**
+- **Loss (Test Set)**: **0.55**
+
+This means:
+- The model correctly predicted the funding outcome (success or failure) about 73% of the time on unseen data.
+- The loss of 0.55 indicates there’s still some prediction error — the model didn’t perfectly match the actual labels.
+
+```python
+# Train the model
+history = nn.fit(
+    X_train_scaled, y_train,
+    validation_data=(X_test_scaled, y_test),
+    epochs=100,
+    callbacks=[early_stopping]
+)
+
+# Evaluate the model
+model_loss, model_accuracy = nn.evaluate(X_test_scaled, y_test, verbose=2)
+print(f"Loss: {model_loss}, Accuracy: {model_accuracy}")
+```
+
+### Training vs Validation Performance
 
 ![Training vs Validation Loss and Accuracy](Images/training_validation_performance.png)
 
-  - **Training vs Validation Loss**:
-    - The training loss steadily decreases, indicating that the model is learning and improving. 
-    - However, the validation loss does not decrease at the same rate and flattens out, suggesting that the model may not be generalizing well on unseen data.
-  
-  - **Training vs Validation Accuracy**:
-    - The training accuracy continues to increase, reflecting improved performance on the training dataset.
-    - The validation accuracy shows a similar upward trend but is lower than the training accuracy, which may indicate **overfitting**. This means the model performs well on the training data but struggles with new, unseen data.
-  
-    #### **Takeaway**:
-    From these plots, it's evident that while the model performs well on the training data, there are signs of overfitting, as shown by the validation accuracy lagging behind the training accuracy. Techniques like early stopping, regularization, or using a different model could help reduce overfitting and improve generalization to unseen data.
+**Observations:**
+- Training accuracy consistently improved over epochs
+- Validation accuracy and loss plateaued early, indicating **moderate overfitting**
+- Validation loss failed to improve beyond a point, triggering **early stopping**
 
-### Attempts to Improve the Model
-To optimize the model further, I experimented with several changes:
-- **Changed the number of epochs** from 50 to 200, expecting it would allow the model to learn more effectively.
-- **Tried different dropout rates**: I tested dropout rates of **0.2** and **0.4** in the hidden layers, aiming to prevent overfitting. The model's performance did not significantly change with either rate.
-- **Used the SGD optimizer** with a learning rate of 0.01 and momentum of 0.9, hoping to improve the model’s convergence.
-- **Added early stopping** with a patience value of 10 to stop training early if the model stopped improving.
-- **Tried changing the activation function** from `relu` to `tanh` in the hidden layers, hoping it would enhance performance.
-- **Added a third hidden layer** and **increased the number of neurons** in the existing layers, hoping it would improve model complexity and performance.
+---
 
-Despite these improvements, **none of the changes led to a significant improvement** in the model’s performance. The accuracy remained at **72.96%** and the loss remained at **0.55**, suggesting that the model might be nearing its performance limit with the given configuration.
+### Optimization Attempts
 
-### **Recommendations:**
+- Increased number of training epochs (50 → 200)
+- Tested dropout rates of 0.2 and 0.4
+- Changed activation functions from `ReLU` to `tanh`
+- Switched optimizers from `Adam` to `SGD`
+- Added third hidden layer and increased neuron count
 
-The deep learning model developed for the classification task achieved an accuracy of approximately 73%. Despite various optimizations—such as adjusting the number of hidden layers, increasing the number of neurons, tweaking the dropout rate, and changing the activation function and optimizer—the model did not surpass the target accuracy of 75%.
+**Result**: Despite these changes, the model performance remained stable with no significant improvement.
 
-To improve the performance, I suggest experimenting with the following approaches:
+---
 
-- **Logistic Regression:** While our neural network is a more complex model, logistic regression can be a simpler alternative that may perform well, especially when the data has a more linear relationship. It’s quick to implement and could provide a baseline for comparison.
+## Final Result
 
-- **Random Forest:** This ensemble model combines multiple decision trees to make more robust predictions. Random Forests are less prone to overfitting and can handle both linear and non-linear data patterns effectively. It could potentially outperform the neural network with less tuning required.
+The final neural network model achieved a **test accuracy of 72.96%** and a **loss of 0.55** when predicting whether charitable organizations would receive funding based on their application data.
 
-By trying these models and fine-tuning the parameters, we could potentially achieve the target accuracy and provide a better solution for this classification problem.
+Despite multiple optimization attempts—including adjusting dropout rates, changing activation functions, increasing epochs, and implementing early stopping—the model's performance plateaued below the target benchmark of 75%.
+
+These results suggest that while the neural network was able to learn meaningful patterns, the available features (such as income amount, use case, and organization type) may not be strong enough to support further gains through deep learning alone.
+
+The model also exhibited signs of **overfitting**, as seen in the widening gap between training and validation accuracy during training.
+
+### Conclusion
+
+For structured tabular data like this, simpler algorithms such as **Logistic Regression** or **Random Forest** may yield comparable or improved performance with greater interpretability and efficiency. Future iterations of this project could explore these alternatives or incorporate additional features for better predictive power.
