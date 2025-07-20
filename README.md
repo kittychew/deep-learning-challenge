@@ -1,4 +1,4 @@
-# Charity Success Classification with Neural Networks
+# Nonprofit Funding Success Prediction Using Deep Learning
 
 ## Overview
 
